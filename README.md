@@ -9,7 +9,7 @@
 | STT | Họ và tên | MSSV | Vai trò chính | Nhiệm vụ cụ thể |
 | :---: | :--- | :---: | :--- | :--- |
 | 1 | **Nguyễn Trung Hiếu** | 080206003109 | **Trưởng nhóm** & System Architect | Quản trị Git, thiết kế CSDL (MySQL), luồng Xác thực (JWT Auth) & Phân quyền |
-| 2 | **Nguyễn Thế Hoàng Bách** | ... | Frontend Developer 1 | Xây dựng Bảng điều khiển (Dashboard) & Giao diện bảng Kanban kéo thả |
+| 2 | **Nguyễn Thế Hoàng Bách** | 038206023800 | Frontend Developer 1 | Xây dựng Bảng điều khiển (Dashboard) & Giao diện bảng Kanban kéo thả |
 | 3 | **Huỳnh Võ Minh Khoa** | 079206040442 | Frontend Developer 2 | Form thêm/sửa/xóa task, Bộ lọc tìm kiếm & Quản lý danh sách thành viên |
 | 4 | **Trần Quốc Bảo** | ... | Backend Developer 1 | Xây dựng API CRUD Tác vụ (`/tasks`), gán người làm & cập nhật trạng thái |
 | 5 | **Lê Đăng Khoa** | 080206014903 | Backend Developer 2 | Xây dựng API Dự án (`/projects`), Nhóm làm việc & Bình luận (`/comments`) |
