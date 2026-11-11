@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quản lý tác vụ</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Dashboard quản lý tác vụ</h1>
+    <form id="login-form">
+  <label>Email <input name="email" type="email" required></label>
+  <label>Mật khẩu <input name="password" type="password" required></label>
+  <button type="submit">Đăng nhập</button>
+</form>
+
+<p id="api-message" role="status"></p>
+
+    <dl class="summary" aria-label="Thống kê tác vụ" aria-live="polite">
+      <div><dt>Tổng tác vụ</dt><dd id="total-count">0</dd></div>
+      <div><dt>Chưa làm</dt><dd id="todo-count">0</dd></div>
+      <div><dt>Đang làm</dt><dd id="in_progress-count">0</dd></div>
+      <div><dt>Chờ duyệt</dt><dd id="review-count">0</dd></div>
+<div><dt>Hoàn thành</dt><dd id="done-count">0</dd></div>
+    </dl>
+
+    <h2>Bảng Kanban</h2>
+    <p>Kéo thẻ sang cột khác hoặc chọn trạng thái trên thẻ.</p>
+
+    <div class="board">
+      <section class="column" data-status="todo">
+        <h3>Chưa làm</h3>
+        <div class="task-list"></div>
+      </section>
+      <section class="column" data-status="in_progress">
+        <h3>Đang làm</h3>
+        <div class="task-list"></div>
+      </section>
+      <section class="column" data-status="review">
+  <h3>Chờ duyệt</h3>
+  <div class="task-list"></div>
+</section>
+      <section class="column" data-status="done">
+        <h3>Hoàn thành</h3>
+        <div class="task-list"></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
