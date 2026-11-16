@@ -1,87 +1,49 @@
+// Lớp gọi API + quản lý phiên đăng nhập (JWT lưu trong localStorage)
+// Sửa lại dòng này trong api.js để hỗ trợ chạy chuẩn trên Render Static Site
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000' 
+    : 'https://form-khao-sat.onrender.com';
 
-const API_URL = "http://localhost:5000/api";
+const Auth = {
+    get token() { return localStorage.getItem('tm_token'); },
+    get user() {
+        try { return JSON.parse(localStorage.getItem('tm_user')); } catch (e) { return null; }
+    },
+    save(token, user) {
+        localStorage.setItem('tm_token', token);
+        localStorage.setItem('tm_user', JSON.stringify(user));
+    },
+    clear() { localStorage.removeItem('tm_token'); localStorage.removeItem('tm_user'); },
+    require() { if (!this.token) location.replace('login.html'); },
+    logout() { this.clear(); location.replace('login.html'); }
+};
 
-// Hàm gửi yêu cầu đến Backend
-async function apiRequest(endpoint, options = {}) {
-    const token = localStorage.getItem("token");
+async function api(path, { method = 'GET', body, auth = true } = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth && Auth.token) headers.Authorization = 'Bearer ' + Auth.token;
 
-    const headers = {
-        "Content-Type": "application/json",
-        ...options.headers
-    };
-
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+    let res;
+    try {
+        res = await fetch(API_BASE + '/api' + path, {
+            method, headers, body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+    } catch (e) {
+        throw new Error('Không kết nối được máy chủ. Hãy kiểm tra backend đã chạy chưa!');
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers
-    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* không có body */ }
 
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        throw new Error(data.message || "Có lỗi xảy ra!");
+    const msg = (data && data.message) || '';
+    const tokenError = res.status === 401 || (res.status === 403 && /xác thực|token/i.test(msg));
+    if (auth && tokenError) {
+        Auth.logout();
+        throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
     }
-
+    if (!res.ok) {
+        const err = new Error(msg || 'Có lỗi xảy ra (' + res.status + ')');
+        err.status = res.status;
+        throw err;
+    }
     return data;
-}
-
-// Đăng nhập
-async function login(email, password) {
-    const data = await apiRequest("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password })
-    });
-
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    return data;
-}
-
-// Lấy danh sách dự án
-async function getProjects() {
-    return await apiRequest("/projects");
-}
-
-// Lấy danh sách công việc
-async function getTasks(projectId) {
-    return await apiRequest(`/tasks?project_id=${projectId}`);
-}
-
-// Thêm công việc
-async function createTask(task) {
-    return await apiRequest("/tasks", {
-        method: "POST",
-        body: JSON.stringify(task)
-    });
-}
-
-// Cập nhật công việc
-async function updateTask(id, task) {
-    return await apiRequest(`/tasks/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(task)
-    });
-}
-
-// Xóa công việc
-async function deleteTaskAPI(id) {
-    return await apiRequest(`/tasks/${id}`, {
-        method: "DELETE"
-    });
-}
-
-// Lấy danh sách thành viên dự án
-async function getMembers(projectId) {
-    return await apiRequest(`/projects/${projectId}/members`);
-}
-
-// Đăng xuất
-function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "login.html";
 }

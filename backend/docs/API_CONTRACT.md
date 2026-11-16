@@ -201,3 +201,78 @@
 {
   "message": "Thêm bình luận thành công!"
 }
+
+---
+
+## 5. Module Bảng điều khiển (Dashboard) - bổ sung
+> Header: Authorization: Bearer <token>
+
+### 5.1 Thống kê tổng hợp của tôi
+* URL: GET /api/dashboard
+* Response (200 OK):
+{
+  "projects": 1,
+  "total": 3,
+  "by_status": { "todo": 1, "in_progress": 1, "review": 0, "done": 1 },
+  "overdue": 1,
+  "assigned_to_me": 2,
+  "upcoming": [ { "id": 2, "title": "...", "status": "in_progress", "priority": "high", "project_id": 1, "project_name": "...", "due_date": "2026-11-15T23:59:59" } ]
+}
+
+## 6. Trường bổ sung & quy tắc phân quyền (so với bản đặc tả gốc)
+* GET /api/projects: thêm `task_count`, `done_count`, `member_count`.
+* GET /api/projects/:projectId/members: thêm `avatar_url`.
+* GET /api/projects/:projectId/tasks: thêm `creator_id`, `creator_name`, `created_at`, `comment_count`.
+* GET /api/tasks/:taskId/comments: thêm `user_id`, `avatar_url`. POST trả thêm `commentId`.
+* POST /api/tasks: `status` (tùy chọn, mặc định `todo`), `assignee_id` phải là thành viên dự án; `due_date` nhận `YYYY-MM-DD`.
+* PUT /api/tasks/:id: chỉ cập nhật trường được gửi; gửi `assignee_id: null` / `due_date: null` để bỏ.
+* Mã lỗi chung: 400 dữ liệu sai · 401/403 token sai/hết hạn · 403 không đủ quyền · 404 không tồn tại · 409 trùng thành viên.
+
+| Hành động | owner | leader | member |
+|---|:-:|:-:|:-:|
+| Xem task / bình luận / thành viên | ✔ | ✔ | ✔ |
+| Tạo task, kéo thả đổi trạng thái, bình luận | ✔ | ✔ | ✔ |
+| Sửa chi tiết task | ✔ | ✔ | chỉ task mình tạo/được giao |
+| Xóa task | ✔ | ✔ | chỉ task mình tạo |
+| Thêm thành viên (member) | ✔ | ✔ | ✖ |
+| Thêm leader | ✔ | ✖ | ✖ |
+
+---
+
+## 7. Module bổ sung: Mật khẩu · Hồ sơ · Thông báo · Sắp xếp task
+
+### 7.1 Quên / đặt lại mật khẩu (không cần token)
+* `POST /api/auth/forgot-password` Body `{ "email": "a@uth.edu.vn" }` -> 200 `{ "message": "Nếu email tồn tại..." }` (luôn cùng thông điệp). 429 nếu gọi quá 5 lần/15 phút. Server gửi email chứa liên kết `APP_URL/reset.html?token=...` (SMTP hoặc Brevo, xem `.env.example`). Khi `RESET_SHOW_LINK=true` (demo) trả thêm `dev_reset_link` và có thể không gửi mail.
+* `POST /api/auth/reset-password` Body `{ "token": "...", "password": "mat-khau-moi" }` -> 200 | 400 (token sai/hết hạn/đã dùng, mật khẩu ngoài 6-72 ký tự).
+
+### 7.2 Hồ sơ cá nhân (Authorization: Bearer)
+* `GET /api/users/me` -> `{ id, full_name, email, avatar_url, role, created_at }`
+* `PUT /api/users/me` Body `{ "full_name": "..." }`
+* `PUT /api/users/me/password` Body `{ "current_password": "...", "new_password": "..." }`
+* `POST /api/users/me/avatar` Body `{ "image": "data:image/jpeg;base64,..." }` (png/jpeg/webp, tối đa 2MB) -> `{ avatar_url: "/uploads/avatars/1-ab12.jpg" }`
+* `DELETE /api/users/me/avatar`
+
+### 7.3 Thông báo (Authorization: Bearer)
+* `GET /api/notifications` -> `{ unread, items: [ { id, type, message, project_id, task_id, is_read, created_at } ] }`
+* `PATCH /api/notifications/:id/read` · `PATCH /api/notifications/read-all`
+* `GET /api/notifications/stream` — kênh **Server-Sent Events**. Sự kiện: `ready`, `notification` (thông báo mới), `project_update` (`{ project_id, action, task_id }` -> client tải lại bảng Kanban).
+* Loại thông báo (`type`): `task_assigned`, `task_status`, `comment`, `project_added`. Người thực hiện hành động không tự nhận thông báo.
+
+### 7.4 Sắp xếp thứ tự task trong cột
+* `PATCH /api/tasks/:id/move` Body `{ "status": "review", "before_id": 7 }` — chèn task vào cột `status`, ngay TRƯỚC task `before_id` (`null` = cuối cột). `GET /api/projects/:projectId/tasks` trả task theo đúng thứ tự đã lưu (cột `position`).
+* `PATCH /api/tasks/:id/status` vẫn giữ nguyên; task đổi cột sẽ nằm cuối cột đích.
+
+### 7.5 Việc của tôi (Authorization: Bearer)
+* `GET /api/tasks/mine` -> mọi task được giao cho tôi trên các dự án tôi tham gia (tối đa 300), sắp theo hạn chót:
+  `[ { "id": 2, "project_id": 1, "project_name": "...", "title": "...", "status": "in_progress", "priority": "high", "due_date": "2026-11-15T23:59:59", "comment_count": 0 } ]`
+
+### 3.5 Xóa dự án
+* URL: DELETE /api/projects/:projectId
+* Header: Authorization: Bearer <token>
+* Quyền: chỉ **owner** của dự án.
+* Hiệu ứng: xóa toàn bộ task, bình luận, thành viên và thông báo gắn với dự án; thành viên khác nhận thông báo "đã xóa dự án".
+* Response:
+  - 200 OK: { "message": "Đã xóa dự án!" }
+  - 400: projectId không hợp lệ
+  - 403: { "message": "Chỉ chủ dự án (owner) mới được xóa dự án!" }
+  - 404: { "message": "Không tìm thấy dự án!" }

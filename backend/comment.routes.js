@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router({ mergeParams: true }); // để đọc được :taskId
 const pool = require('./db');
 const verifyToken = require('./auth.middleware');
+const { notifyUsers, broadcastProject, userName } = require('./realtime');
 
 router.use(verifyToken);
 
@@ -16,7 +17,7 @@ const parseId = (v) => {
 // Task phải tồn tại và user phải thuộc dự án chứa task đó
 const checkTaskAccess = async (taskId, userId) => {
     const [rows] = await pool.query(
-        `SELECT t.id, pm.project_role
+        `SELECT t.id, t.project_id, t.title, t.creator_id, t.assignee_id, pm.project_role
            FROM tasks t
            LEFT JOIN project_members pm
                   ON pm.project_id = t.project_id AND pm.user_id = ?
@@ -27,7 +28,7 @@ const checkTaskAccess = async (taskId, userId) => {
     if (!rows[0].project_role) {
         return { error: { status: 403, message: 'Bạn không thuộc dự án chứa task này!' } };
     }
-    return { ok: true };
+    return { ok: true, task: rows[0] };
 };
 
 // 4.1 Lấy danh sách bình luận của 1 task (GET /api/tasks/:taskId/comments)
@@ -72,13 +73,20 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const { error } = await checkTaskAccess(taskId, req.user.id);
+        const { error, task } = await checkTaskAccess(taskId, req.user.id);
         if (error) return res.status(error.status).json({ message: error.message });
 
         const [result] = await pool.query(
             'INSERT INTO comments (task_id, user_id, content) VALUES (?, ?, ?)',
             [taskId, req.user.id, content]
         );
+        // Báo cho người tạo + người được giao (trừ chính người bình luận)
+        await notifyUsers({
+            userIds: [task.creator_id, task.assignee_id], actorId: req.user.id, type: 'comment',
+            message: `${await userName(req.user.id)} đã bình luận trong "${task.title}"`,
+            projectId: task.project_id, taskId
+        });
+        await broadcastProject(task.project_id, { action: 'comment', task_id: taskId }, req.user.id);
         return res.status(201).json({ message: 'Thêm bình luận thành công!', commentId: result.insertId });
     } catch (err) {
         console.error(err);
